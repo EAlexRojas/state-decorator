@@ -282,6 +282,11 @@ export interface StateDecoratorProps<S, A extends DecoratedActions, P = {}> {
   onUnmount?: (s: S, props: P) => void;
 
   /**
+   * Function to call when the window is about to be unloaded. Usually used to persist a state.
+   */
+  onUnload?: (s: S, props: P) => void;
+
+  /**
    * Child function,
    */
   children?: (
@@ -342,17 +347,19 @@ export function retryDecorator<S, F extends (...args: any[]) => Promise<any>, A,
         return null;
       }
 
-      return p.then((res) => resolve(res)).catch((e) => {
-        if (isRetryError(e)) {
-          if (callCount === maxCalls) {
-            reject(e);
+      return p
+        .then((res) => resolve(res))
+        .catch((e) => {
+          if (isRetryError(e)) {
+            if (callCount === maxCalls) {
+              reject(e);
+            } else {
+              setTimeout(call, delay * callCount, callCount + 1, resolve, reject);
+            }
           } else {
-            setTimeout(call, delay * callCount, callCount + 1, resolve, reject);
+            reject(e);
           }
-        } else {
-          reject(e);
-        }
-      });
+        });
     }
 
     return new Promise((resolve, reject) => {
@@ -625,6 +632,7 @@ export default class StateDecorator<S, A extends DecoratedActions, P = {}> exten
   private debounceActionMap: {
     [name: string]: any;
   } = {};
+  private onUnload: EventListener;
 
   /**
    * Adds an action to the action history (only when at least one optimistic action is ongoing).
@@ -719,9 +727,15 @@ export default class StateDecorator<S, A extends DecoratedActions, P = {}> exten
   }
 
   componentDidMount() {
-    const { onMount, props } = this.props;
+    const { onMount, onUnload, props } = this.props;
     if (onMount) {
       onMount(this.actions, props);
+    }
+    if (onUnload) {
+      this.onUnload = () => {
+        onUnload(this.dataState, this.props.props);
+      };
+      window.addEventListener('beforeunload', this.onUnload);
     }
     this.mounted = true;
   }
@@ -795,12 +809,15 @@ export default class StateDecorator<S, A extends DecoratedActions, P = {}> exten
   }
 
   componentWillUnmount() {
-    const { onUnmount } = this.props;
+    const { onUnmount, onUnload } = this.props;
 
     this.mounted = false;
 
     if (onUnmount) {
       onUnmount(this.dataState, this.props.props);
+    }
+    if (onUnload) {
+      window.removeEventListener('beforeunload', this.onUnload);
     }
   }
 

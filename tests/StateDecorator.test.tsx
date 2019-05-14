@@ -141,6 +141,74 @@ describe('StateDecorator', () => {
 
     done();
   });
+  
+  it('handles onUnload to save state', (done) => {
+    let wrapper;
+    
+    type State = {
+        value: string;
+    };
+    type Actions = {
+        action: (value: string) => void;
+    };
+    type Props = {
+        onSaveState: (s: State) => void;
+    };
+    
+    const actions: StateDecoratorActions<State, Actions, Props> = {
+        action: (state, [value]) => ({ value }),
+    };
+    
+    let savedValue: string;
+    
+    const onMount = (actions: Actions) => {
+        actions.action('update');
+    };
+    
+    const onUnload = (s: State, p: Props) => {
+        savedValue = s.value;
+        expect(p.onSaveState).toBeDefined();
+        p.onSaveState(s);
+    };
+    
+    const render = jestFail(done, (state, actions, loading) => {
+        return <div />;
+    });
+    
+    const props = {
+        actions,
+        onMount,
+        onUnload,
+        props: {
+            onSaveState: jest.fn(),
+        },
+    };
+    
+    const events:any = {};
+    window.addEventListener = jest.fn((event, cb) => {
+        events[event] = cb;
+    });
+    window.removeEventListener = jest.fn();
+    
+    wrapper = shallow(
+        <StateDecorator {...props} initialState={{ value: 'initial' }}>
+            {render}
+        </StateDecorator>
+    );
+    
+    expect(window.addEventListener).toHaveBeenCalled();
+    
+    // Simulate 'beforeunload' event
+    events.beforeunload();
+    
+    expect(savedValue).toEqual('update');
+    expect(props.props.onSaveState).toHaveBeenCalled();
+    
+    wrapper.unmount();
+    expect(window.removeEventListener).toHaveBeenCalled();
+    
+    done();
+  });
 
   it('handles 2 synchronous actions', (done) => {
     let wrapper;

@@ -364,6 +364,27 @@ export default class Container extends React.Component {
 }
 ```
 
+## Persist state on window unload
+
+For cases where the state is needed to be saved when the window is unloaded (the page is refreshed or the window/tab is closed),
+StateDecorator listens to the 'beforeunload' window event and call the **onUnload** property with the current state as parameter.
+
+```typescript
+export default class Container extends React.Component {
+  static onUnload(s: State, p: Props) {
+    localStorage.setItem('state', JSON.stringify(s));
+  }
+
+  render() {
+    return (
+      <StateDecorator actions={Container.actions} onUnload={Container.onUnload}>
+        {(s, actions) => <View {...s} {...actions} />}
+      </StateDecorator>
+    );
+  }
+}
+```
+
 # Chain actions
 
 Synchronous and asynchronous actions can be chained.
@@ -791,6 +812,7 @@ _Actions_ is the generic actions class passed to the StateDecorator.
 | notifySuccess        | Callback function triggered when an asynchronous actions succeeds and an success message is provided.                                                       | (message: string) => void                                                                               |           |               |
 | onMount              | Function to invoke when the StateDecorator is mounted. Used to execute initial actions.                                                                     | (actions: DecoratedActions) => void                                                                     |           |               |
 | onUnmount            | Function to invoke when the StateDecorator is unmounted. Used to persist the state                                                                          | (state: State, props: Props) => void                                                                    |           |               |
+| onUnload             | Function to invoke when the the window is unloaded. Used to persist the state                                                                               | (state: State, props: Props) => void                                                                    |           |               |
 | children             | The child of the StateDecorator is a function that renders a component tree.                                                                                | (state: State, actions: Actions, loading: boolean, loadingMap: {[name: string]:boolean}) => JSX.Element | true      |               |
 | getPropsRefValues    | Get a list of values that will be use as reference values. If they are different (shallow compare), onPropsChangeReducer then onPropsChange will be called. | (props: any) => any[];                                                                                  |           |               |
 | onPropsChangeReducer | Triggered when values of reference from props have changed. Allow to update state after a prop change.                                                      | (s: State, newProps: any, updatedIndices: number[]) => State;                                           |           |               |  |
